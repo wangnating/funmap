@@ -1,0 +1,65 @@
+interqtl.optim <- function(parin, mlefunc, y, qtl.prob =NULL )
+{
+	browser()
+	g_optim  <- FM2.get_value("optim", "BFGS");
+	loop  <- 0;
+	h.ret <- NA;
+	
+	while( loop < 1 )     
+	{
+		h <- NA;
+		
+		if (is.null(qtl.prob))
+		{
+			if (g_optim=="BFGS" || g_optim=="Nelder-Mead" || g_optim=="SANN")
+				try( h<- optim( parin, mlefunc, y = y, method =g_optim ), F)
+			else if (g_optim=="CE")
+				h<- optim_ce( parin, mlefunc, y = y);
+		}
+		else
+		{
+			if (g_optim=="BFGS" || g_optim=="Nelder-Mead" || g_optim=="SANN")
+				try( h<- optim( parin, mlefunc, y = y, qtl.prob=qtl.prob, method =g_optim ), F)
+			else if (g_optim=="CE")
+				h<- optim_ce( parin, mlefunc, y = y, qtl.prob=qtl.prob );
+		}
+		
+		if(class(h) != "try-error" &&  !is.na(h) && h$value>0)
+		{
+			m <- dim(dat$phenos_table)[2]; 
+			y <- dat$phenos_table[ , m ] ;
+			
+			sd <- sd(y, na.rm=T);
+			mu <- mean(y, na.rm=T);
+			
+			mu2 <- h$par(2);
+			p2 <- pnorm( mu2, mu, sd);
+			
+			p1 <- c();
+			if(length(h$par)>2)
+			{
+				mu1 <- h$par(3);
+				p1 <- pnorm( mu1, mu, sd);
+			}
+			
+			p0 <- c();
+			if(length(h$par)>3)
+			{
+				mu0 <- h$par(4);
+				p0 <- pnorm( mu0, mu, sd);
+			}
+			
+			p <- c(p0, p1, p2);
+			if(length(which(p<0.05 | p> 0.95))==0)
+			{
+				loop <- loop+1;
+				if(is.na(h.ret)) h.ret <- h;
+				if(h.ret$value > h$value )  h.ret <- h;
+			}
+cat("LOOP=", loop, h$value, h$par, "\n");
+		}
+			parin <- parin * runif( length(parin), 0.95, 1.05);
+	}
+	
+	return(h.ret);
+}

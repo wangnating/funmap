@@ -1,0 +1,8 @@
+#PBS -l walltime=24:00:00
+#PBS -l nodes=1:ppn=1
+#PBS -j oe
+
+cd $PBS_O_WORKDIR
+
+module load R
+R --no-restore --no-save --no-readline < sm.test.r > test.out

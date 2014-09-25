@@ -1,0 +1,105 @@
+interval.get_est_param<-function(dat, f_init_rand)
+{
+	m <- dim(dat$phenos_table)[2]; 
+	y <- dat$phenos_table[ , m ] ;
+	prob0 <- FM2.get_value("fitting.prob", 0.05);
+	
+	val <- Inf;
+	loop <- 0;
+	loop.Failed <- 0;
+	rand.seed <- runif(1);
+	rset.seed <- 0;
+	
+	if( !is.null(f_init_rand) )
+		par0 <- f_init_rand(y)
+	else
+		par0 <- runif(1)*mean(y,na.rn=T);
+	
+	par <- par0;
+cat("INTER.INIT=",par£¬"Prob.=",prob0,"\n");
+	while( loop <= 100 )
+	{
+		if (loop==0)
+			parin <- par
+		else
+		{
+			if(round(rand.seed%%3)==0)
+				parin <- runif( 1, 0.98, 1.02) *par
+			else
+				parin <- runif( par.num, 1/10+0.8*loop/100, 10 - 8.9*loop/100 )* par;
+		}
+		
+		r0 <- NA;
+		bFailed <- FALSE;
+		optim.method<-ifelse(round(rand.seed%%2)==0, "Nelder-Mead", "BFGS" )
+		try( r0<- optim( parin, interval.mlefunc, dat=y, method=optim.method), T);      
+		if (class(r0)=="try-error" || is.na(r0) )
+			bFailed <- TRUE
+		else
+		{
+			yy <- r0$par;
+			mu <- mean(y, na.rm=T);
+			sd <- sd(y, na.rm=T);
+			p0 <- pnorm( yy, mu, sd );
+			
+			prob1 <- 1 - prob0;
+			#unfit.max <- round( length(dat$sample_times)*(80-loop)/80 );  ###########################################
+			#if (unfit.max<1) unfit.max <- 1;     #################################################
+			
+			#if ( length(which( p0 < prob0 | p0 > prob1 ) ) >= unfit.max )
+				#bFailed <- TRUE;
+		}
+		
+		if(bFailed)
+		{
+cat(".");
+			rand.seed <- (rand.seed + runif(1, 1, 5) )%%1000;
+				loop.Failed <- loop.Failed + 1
+				if ( loop.Failed> 50 )
+				{
+cat("\n");	
+					#par <- runif(par.num, 0.95, 1.05)*par0;
+					loop <- 1;
+					rset.seed <- rset.seed + 1;
+					loop.Failed <- 0;
+					
+					if ( rset.seed > 20 )
+					{
+						cat("\nFailed to estimate curve!.\n");
+						return(list(val=NA, par=NA, method="LeastSq",rset.seed=rset.seed, fitting.prob=prob0));
+					}	
+				}
+				set.seed( rand.seed^2 );
+				next;
+		}
+		
+		
+		if (r0$value < val )
+		{
+			par <- r0$par;
+			val <- r0$value;
+		}
+				
+		loop.Failed <- 0;
+		loop <- loop + 1;
+cat("o");
+	}
+	if(1)
+	{
+cat("\n");
+		yy <- par;
+		mu <- mean(y, na.rm=T);
+		sd <- sd(y, na.rm=T);
+		p0 <- pnorm( yy, mu, sd );
+		r.tmp <- rbind( yy, mu, sd, p0);
+		
+		show(r.tmp);
+		min.prob <- min(p0, 1-p0);
+	}
+	
+	cat("\nINTERVAL Parameters:", "val(L)=", val, "PAR=", par, "Prob=", min.prob, "\n");
+	
+	return(list(val=val, par=par, method="mlefunc", fitting.prob=prob0, min.prob=min.prob));
+	
+
+}
